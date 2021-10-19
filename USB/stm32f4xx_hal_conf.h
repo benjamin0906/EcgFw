@@ -323,10 +323,6 @@
   #include "stm32f4xx_hal_eth.h"
 #endif /* HAL_ETH_MODULE_ENABLED */
 
-#ifdef HAL_FLASH_MODULE_ENABLED
-  #include "stm32f4xx_hal_flash.h"
-#endif /* HAL_FLASH_MODULE_ENABLED */
-
 #ifdef HAL_SRAM_MODULE_ENABLED
   #include "stm32f4xx_hal_sram.h"
 #endif /* HAL_SRAM_MODULE_ENABLED */
