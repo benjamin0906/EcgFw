@@ -140,14 +140,7 @@
   *         The pending IRQ priority will be managed only by the subpriority. 
   * @retval None
   */
-void HAL_NVIC_SetPriorityGrouping(uint32_t PriorityGroup)
-{
-  /* Check the parameters */
-  assert_param(IS_NVIC_PRIORITY_GROUP(PriorityGroup));
-  
-  /* Set the PRIGROUP[10:8] bits according to the PriorityGroup parameter value */
-  NVIC_SetPriorityGrouping(PriorityGroup);
-}
+
 
 /**
   * @brief  Sets the priority of an interrupt.
