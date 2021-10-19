@@ -1607,18 +1607,7 @@ typedef struct
   #endif
   #include CMSIS_NVIC_VIRTUAL_HEADER_FILE
 #else
-  #define NVIC_SetPriorityGrouping    __NVIC_SetPriorityGrouping
-  #define NVIC_GetPriorityGrouping    __NVIC_GetPriorityGrouping
-  #define NVIC_EnableIRQ              __NVIC_EnableIRQ
-  #define NVIC_GetEnableIRQ           __NVIC_GetEnableIRQ
-  #define NVIC_DisableIRQ             __NVIC_DisableIRQ
-  #define NVIC_GetPendingIRQ          __NVIC_GetPendingIRQ
-  #define NVIC_SetPendingIRQ          __NVIC_SetPendingIRQ
-  #define NVIC_ClearPendingIRQ        __NVIC_ClearPendingIRQ
-  #define NVIC_GetActive              __NVIC_GetActive
-  #define NVIC_SetPriority            __NVIC_SetPriority
-  #define NVIC_GetPriority            __NVIC_GetPriority
-  #define NVIC_SystemReset            __NVIC_SystemReset
+
 #endif /* CMSIS_NVIC_VIRTUAL */
 
 #ifdef CMSIS_VECTAB_VIRTUAL

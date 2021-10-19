@@ -27,6 +27,7 @@
 
 #include "usbd_cdc.h"
 #include "GPIO.h"
+#include "NVIC.h"
 
 /* USER CODE BEGIN Includes */
 
@@ -74,8 +75,8 @@ void HAL_PCD_MspInit(PCD_HandleTypeDef* pcdHandle)
   {
 
     /* Peripheral interrupt init */
-    HAL_NVIC_SetPriority(OTG_FS_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(OTG_FS_IRQn);
+    NVIC_SetPriority(IRQ_OTG_FS, 0);
+    NVIC_EnableIRQ(IRQ_OTG_FS);
   /* USER CODE BEGIN USB_OTG_FS_MspInit 1 */
 
   /* USER CODE END USB_OTG_FS_MspInit 1 */
@@ -102,7 +103,7 @@ void HAL_PCD_MspDeInit(PCD_HandleTypeDef* pcdHandle)
     GPIO_PinDeinit(PortA_12);
 
     /* Peripheral interrupt Deinit*/
-    HAL_NVIC_DisableIRQ(OTG_FS_IRQn);
+    NVIC_DisableIRQ(IRQ_OTG_FS);
 
   /* USER CODE BEGIN USB_OTG_FS_MspDeInit 1 */
 
