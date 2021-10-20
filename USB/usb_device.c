@@ -43,7 +43,7 @@
 
 /* USB Device Core handle declaration. */
 USBD_HandleTypeDef hUsbDeviceFS;
-uint8 RxBuff[64];
+uint8 RxBuff[USB_RX_BUFFER_SIZE+1];
 uint16 WrIndex;
 uint16 RxIndex;
 
@@ -102,14 +102,13 @@ void USB_Transmit(uint8 *Buffer, uint16 Size)
 uint16 USB_Receive(uint8 *Buffer, uint16 Len)
 {
     uint16 ret = 0;
-    while((RxIndex != WrIndex) && (Len > 0))
+    while((RxIndex != WrIndex) && (ret < Len))
     {
         *Buffer = RxBuff[RxIndex];
         Buffer++;
         RxIndex++;
-        RxIndex &= 63;
+        RxIndex &= USB_RX_BUFFER_SIZE;
         ret++;
-        Len--;
     }
     return ret;
 }

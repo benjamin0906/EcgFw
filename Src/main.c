@@ -55,7 +55,6 @@ int main(void)
     dtGPIOConfig USBConf = {.Type = PushPull, .Speed  = VeryHigh, .PUPD = NoPull, .Mode = Alt10};
     dtGPIOConfig USBConfInput = {.Type = PushPull, .Speed  = Low, .PUPD = NoPull, .Mode = Input};
 
-
     RCC_ClockEnable(RCC_GPIOA, Enable);
     RCC_ClockEnable(RCC_GPIOB, Enable);
     RCC_ClockEnable(RCC_GPIOC, Enable);
@@ -71,7 +70,6 @@ int main(void)
     GPIO_PinInit(PortA_12, USBConf);
 
     BasicTIM_Set(TIM7, config, SysTick_Inc);
-
 
     MX_USB_DEVICE_Init();
 
