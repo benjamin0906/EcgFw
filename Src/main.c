@@ -27,19 +27,6 @@
   #warning "FPU is not initialized, but the project is compiling for an FPU. Please initialize the FPU before use."
 #endif
 
-static uint32 SysTick;
-
-void SysTick_Inc(void)
-{
-    SysTick++;
-}
-
-void ToggleFunc(void)
-{
-
-    GPIO_Set(PortA_15, Toggle);
-}
-
 int main(void)
 {
     dtRccInitConfig RCCConf = {.Clock = 144000000,
@@ -49,7 +36,6 @@ int main(void)
             .PLL_QDiv = QDiv_6,
             .CrystalOrInternal = Crystal,
             .CrystalClockFreq = 16000000};
-    dtBasicTimConfig config = {.MasterMode = 0, .AutoReload = 72, .Prescaler = 999, .ARPreload = 1, .UpdateDisable = 0, .UpdateSource = 0, .OnePulse = 0, .Enable = 1};
     dtGPIOConfig LedConfig = {.Type = PushPull, .Speed  = VeryHigh, .PUPD = NoPull, .Mode = Output};
 
 
@@ -60,7 +46,6 @@ int main(void)
     RCC_ClockEnable(RCC_GPIOB, Enable);
     RCC_ClockEnable(RCC_GPIOC, Enable);
     RCC_ClockEnable(RCC_PWR, Enable);
-    RCC_ClockEnable(RCC_TIM7, Enable);
     RCC_ClockEnable(RCC_OTGFS, Enable);
 
     RCC_ClockSet(RCCConf);
@@ -71,8 +56,6 @@ int main(void)
     GPIO_PinInit(PortA_9, USBConfInput);
     GPIO_PinInit(PortA_11, USBConf);
     GPIO_PinInit(PortA_12, USBConf);
-
-    BasicTIM_Set(TIM7, config, SysTick_Inc);
 
     MX_USB_DEVICE_Init();
 
