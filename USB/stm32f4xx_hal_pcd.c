@@ -1441,23 +1441,6 @@ void HAL_PCD_IRQHandler(PCD_HandleTypeDef *hpcd)
   * @param  hpcd PCD handle
   * @retval HAL status
   */
-void HAL_PCD_WKUP_IRQHandler(PCD_HandleTypeDef *hpcd)
-{
-  USB_OTG_GlobalTypeDef *USBx;
-
-  USBx = hpcd->Instance;
-
-  if ((USBx->CID & (0x1U << 8)) == 0U)
-  {
-    /* Clear EXTI pending Bit */
-    __HAL_USB_OTG_FS_WAKEUP_EXTI_CLEAR_FLAG();
-  }
-  else
-  {
-    /* Clear EXTI pending Bit */
-    __HAL_USB_OTG_HS_WAKEUP_EXTI_CLEAR_FLAG();
-  }
-}
 #endif /* defined (USB_OTG_FS) || defined (USB_OTG_HS) */
 
 

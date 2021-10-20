@@ -76,6 +76,8 @@ int main(void)
     MX_USB_DEVICE_Init();
 
     uint8 msg[] = "szia\n";
+    uint8 Rx[8];
+    uint16 RxLen = 0;
     uint32 Time = GetTicks();
 
     /* Loop forever */
@@ -84,7 +86,12 @@ int main(void)
 	    if(IsPassed(Time, 1000))
 	    {
 	        Time = GetTicks();
-	        CDC_Transmit_FS(msg, 5);
+	        RxLen = USB_Receive(Rx, 8);
+	        if(RxLen != 0)
+	        {
+	            USB_Transmit(Rx, RxLen);
+	        }
+	        USB_Transmit(msg, 5);
 	    }
 	}
 }

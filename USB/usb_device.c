@@ -43,6 +43,9 @@
 
 /* USB Device Core handle declaration. */
 USBD_HandleTypeDef hUsbDeviceFS;
+uint8 RxBuff[64];
+uint16 WrIndex;
+uint16 RxIndex;
 
 /*
  * -- Insert your variables declaration here --
@@ -89,6 +92,26 @@ void MX_USB_DEVICE_Init(void)
   /* USER CODE BEGIN USB_DEVICE_Init_PostTreatment */
 
   /* USER CODE END USB_DEVICE_Init_PostTreatment */
+}
+
+void USB_Transmit(uint8 *Buffer, uint16 Size)
+{
+    CDC_Transmit_FS(Buffer, Size);
+}
+
+uint16 USB_Receive(uint8 *Buffer, uint16 Len)
+{
+    uint16 ret = 0;
+    while((RxIndex != WrIndex) && (Len > 0))
+    {
+        *Buffer = RxBuff[RxIndex];
+        Buffer++;
+        RxIndex++;
+        RxIndex &= 63;
+        ret++;
+        Len--;
+    }
+    return ret;
 }
 
 /**

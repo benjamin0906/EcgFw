@@ -60,7 +60,6 @@
   @{
  */
 
-#include "cmsis_version.h"
 
 /* CMSIS CM4 definitions */
 #define __CM4_CMSIS_VERSION_MAIN  (__CM_CMSIS_VERSION_MAIN)              /*!< \deprecated [31:16] CMSIS HAL main version */
@@ -1666,174 +1665,19 @@ __STATIC_INLINE uint32_t __NVIC_GetPriorityGrouping(void)
 }
 
 
-/**
-  \brief   Enable Interrupt
-  \details Enables a device specific interrupt in the NVIC interrupt controller.
-  \param [in]      IRQn  Device specific interrupt number.
-  \note    IRQn must not be negative.
- */
-__STATIC_INLINE void __NVIC_EnableIRQ(IRQn_Type IRQn)
-{
-  if ((int32_t)(IRQn) >= 0)
-  {
-    NVIC->ISER[(((uint32_t)IRQn) >> 5UL)] = (uint32_t)(1UL << (((uint32_t)IRQn) & 0x1FUL));
-  }
-}
 
 
-/**
-  \brief   Get Interrupt Enable status
-  \details Returns a device specific interrupt enable status from the NVIC interrupt controller.
-  \param [in]      IRQn  Device specific interrupt number.
-  \return             0  Interrupt is not enabled.
-  \return             1  Interrupt is enabled.
-  \note    IRQn must not be negative.
- */
-__STATIC_INLINE uint32_t __NVIC_GetEnableIRQ(IRQn_Type IRQn)
-{
-  if ((int32_t)(IRQn) >= 0)
-  {
-    return((uint32_t)(((NVIC->ISER[(((uint32_t)IRQn) >> 5UL)] & (1UL << (((uint32_t)IRQn) & 0x1FUL))) != 0UL) ? 1UL : 0UL));
-  }
-  else
-  {
-    return(0U);
-  }
-}
 
 
-/**
-  \brief   Disable Interrupt
-  \details Disables a device specific interrupt in the NVIC interrupt controller.
-  \param [in]      IRQn  Device specific interrupt number.
-  \note    IRQn must not be negative.
- */
-__STATIC_INLINE void __NVIC_DisableIRQ(IRQn_Type IRQn)
-{
-  if ((int32_t)(IRQn) >= 0)
-  {
-    NVIC->ICER[(((uint32_t)IRQn) >> 5UL)] = (uint32_t)(1UL << (((uint32_t)IRQn) & 0x1FUL));
-    __DSB();
-    __ISB();
-  }
-}
 
 
-/**
-  \brief   Get Pending Interrupt
-  \details Reads the NVIC pending register and returns the pending bit for the specified device specific interrupt.
-  \param [in]      IRQn  Device specific interrupt number.
-  \return             0  Interrupt status is not pending.
-  \return             1  Interrupt status is pending.
-  \note    IRQn must not be negative.
- */
-__STATIC_INLINE uint32_t __NVIC_GetPendingIRQ(IRQn_Type IRQn)
-{
-  if ((int32_t)(IRQn) >= 0)
-  {
-    return((uint32_t)(((NVIC->ISPR[(((uint32_t)IRQn) >> 5UL)] & (1UL << (((uint32_t)IRQn) & 0x1FUL))) != 0UL) ? 1UL : 0UL));
-  }
-  else
-  {
-    return(0U);
-  }
-}
 
 
-/**
-  \brief   Set Pending Interrupt
-  \details Sets the pending bit of a device specific interrupt in the NVIC pending register.
-  \param [in]      IRQn  Device specific interrupt number.
-  \note    IRQn must not be negative.
- */
-__STATIC_INLINE void __NVIC_SetPendingIRQ(IRQn_Type IRQn)
-{
-  if ((int32_t)(IRQn) >= 0)
-  {
-    NVIC->ISPR[(((uint32_t)IRQn) >> 5UL)] = (uint32_t)(1UL << (((uint32_t)IRQn) & 0x1FUL));
-  }
-}
 
 
-/**
-  \brief   Clear Pending Interrupt
-  \details Clears the pending bit of a device specific interrupt in the NVIC pending register.
-  \param [in]      IRQn  Device specific interrupt number.
-  \note    IRQn must not be negative.
- */
-__STATIC_INLINE void __NVIC_ClearPendingIRQ(IRQn_Type IRQn)
-{
-  if ((int32_t)(IRQn) >= 0)
-  {
-    NVIC->ICPR[(((uint32_t)IRQn) >> 5UL)] = (uint32_t)(1UL << (((uint32_t)IRQn) & 0x1FUL));
-  }
-}
 
 
-/**
-  \brief   Get Active Interrupt
-  \details Reads the active register in the NVIC and returns the active bit for the device specific interrupt.
-  \param [in]      IRQn  Device specific interrupt number.
-  \return             0  Interrupt status is not active.
-  \return             1  Interrupt status is active.
-  \note    IRQn must not be negative.
- */
-__STATIC_INLINE uint32_t __NVIC_GetActive(IRQn_Type IRQn)
-{
-  if ((int32_t)(IRQn) >= 0)
-  {
-    return((uint32_t)(((NVIC->IABR[(((uint32_t)IRQn) >> 5UL)] & (1UL << (((uint32_t)IRQn) & 0x1FUL))) != 0UL) ? 1UL : 0UL));
-  }
-  else
-  {
-    return(0U);
-  }
-}
 
-
-/**
-  \brief   Set Interrupt Priority
-  \details Sets the priority of a device specific interrupt or a processor exception.
-           The interrupt number can be positive to specify a device specific interrupt,
-           or negative to specify a processor exception.
-  \param [in]      IRQn  Interrupt number.
-  \param [in]  priority  Priority to set.
-  \note    The priority cannot be set for every processor exception.
- */
-__STATIC_INLINE void __NVIC_SetPriority(IRQn_Type IRQn, uint32_t priority)
-{
-  if ((int32_t)(IRQn) >= 0)
-  {
-    NVIC->IP[((uint32_t)IRQn)]               = (uint8_t)((priority << (8U - __NVIC_PRIO_BITS)) & (uint32_t)0xFFUL);
-  }
-  else
-  {
-    SCB->SHP[(((uint32_t)IRQn) & 0xFUL)-4UL] = (uint8_t)((priority << (8U - __NVIC_PRIO_BITS)) & (uint32_t)0xFFUL);
-  }
-}
-
-
-/**
-  \brief   Get Interrupt Priority
-  \details Reads the priority of a device specific interrupt or a processor exception.
-           The interrupt number can be positive to specify a device specific interrupt,
-           or negative to specify a processor exception.
-  \param [in]   IRQn  Interrupt number.
-  \return             Interrupt Priority.
-                      Value is aligned automatically to the implemented priority bits of the microcontroller.
- */
-__STATIC_INLINE uint32_t __NVIC_GetPriority(IRQn_Type IRQn)
-{
-
-  if ((int32_t)(IRQn) >= 0)
-  {
-    return(((uint32_t)NVIC->IP[((uint32_t)IRQn)]               >> (8U - __NVIC_PRIO_BITS)));
-  }
-  else
-  {
-    return(((uint32_t)SCB->SHP[(((uint32_t)IRQn) & 0xFUL)-4UL] >> (8U - __NVIC_PRIO_BITS)));
-  }
-}
 
 
 /**
@@ -1888,35 +1732,7 @@ __STATIC_INLINE void NVIC_DecodePriority (uint32_t Priority, uint32_t PriorityGr
 }
 
 
-/**
-  \brief   Set Interrupt Vector
-  \details Sets an interrupt vector in SRAM based interrupt vector table.
-           The interrupt number can be positive to specify a device specific interrupt,
-           or negative to specify a processor exception.
-           VTOR must been relocated to SRAM before.
-  \param [in]   IRQn      Interrupt number
-  \param [in]   vector    Address of interrupt handler function
- */
-__STATIC_INLINE void __NVIC_SetVector(IRQn_Type IRQn, uint32_t vector)
-{
-  uint32_t *vectors = (uint32_t *)SCB->VTOR;
-  vectors[(int32_t)IRQn + NVIC_USER_IRQ_OFFSET] = vector;
-}
 
-
-/**
-  \brief   Get Interrupt Vector
-  \details Reads an interrupt vector from interrupt vector table.
-           The interrupt number can be positive to specify a device specific interrupt,
-           or negative to specify a processor exception.
-  \param [in]   IRQn      Interrupt number.
-  \return                 Address of interrupt handler function
- */
-__STATIC_INLINE uint32_t __NVIC_GetVector(IRQn_Type IRQn)
-{
-  uint32_t *vectors = (uint32_t *)SCB->VTOR;
-  return vectors[(int32_t)IRQn + NVIC_USER_IRQ_OFFSET];
-}
 
 
 /**
@@ -1944,7 +1760,7 @@ __NO_RETURN __STATIC_INLINE void __NVIC_SystemReset(void)
 
 #if defined (__MPU_PRESENT) && (__MPU_PRESENT == 1U)
 
-#include "mpu_armv7.h"
+//#include "mpu_armv7.h"
 
 #endif
 
