@@ -618,16 +618,6 @@ void USBD_static_free(void *p)
 }
 
 /**
-  * @brief  Delays routine for the USB Device Library.
-  * @param  Delay: Delay in ms
-  * @retval None
-  */
-void USBD_LL_Delay(uint32_t Delay)
-{
-  HAL_Delay(Delay);
-}
-
-/**
   * @brief  Returns the USB status depending on the HAL status:
   * @param  hal_status: HAL status
   * @retval USB status

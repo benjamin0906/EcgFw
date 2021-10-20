@@ -94,9 +94,9 @@ void MX_USB_DEVICE_Init(void)
   /* USER CODE END USB_DEVICE_Init_PostTreatment */
 }
 
-void USB_Transmit(uint8 *Buffer, uint16 Size)
+uint8 USB_Transmit(uint8 *Buffer, uint16 Size)
 {
-    CDC_Transmit_FS(Buffer, Size);
+    return CDC_Transmit_FS(Buffer, Size);
 }
 
 uint16 USB_Receive(uint8 *Buffer, uint16 Len)

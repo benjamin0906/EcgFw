@@ -21,6 +21,7 @@
 #include "GPIO.h"
 #include "BasicTIM.h"
 #include "usb_device.h"
+#include "SysTick.h"
 
 #if !defined(__SOFT_FP__) && defined(__ARM_FP)
   #warning "FPU is not initialized, but the project is compiling for an FPU. Please initialize the FPU before use."
@@ -31,12 +32,12 @@ static uint32 SysTick;
 void SysTick_Inc(void)
 {
     SysTick++;
-    GPIO_Set(PortA_15, Toggle);
 }
 
-uint32 GetTicks(void)
+void ToggleFunc(void)
 {
-    return SysTick;
+
+    GPIO_Set(PortA_15, Toggle);
 }
 
 int main(void)
@@ -64,6 +65,8 @@ int main(void)
 
     RCC_ClockSet(RCCConf);
 
+    SysTick_Init(144000);
+
     GPIO_PinInit(PortA_15, LedConfig);
     GPIO_PinInit(PortA_9, USBConfInput);
     GPIO_PinInit(PortA_11, USBConf);
@@ -76,20 +79,26 @@ int main(void)
     uint8 msg[] = "szia\n";
     uint8 Rx[8];
     uint16 RxLen = 0;
-    uint32 Time = GetTicks();
+    uint32 Time = SysTick_GetTicks();
+
 
     /* Loop forever */
 	for(;;)
 	{
 	    if(IsPassed(Time, 1000))
 	    {
-	        Time = GetTicks();
-	        RxLen = USB_Receive(Rx, 8);
-	        if(RxLen != 0)
-	        {
-	            USB_Transmit(Rx, RxLen);
-	        }
+	        Time = SysTick_GetTicks();
+
 	        USB_Transmit(msg, 5);
 	    }
+	    if(RxLen == 0) RxLen = USB_Receive(Rx, 8);
+        if(RxLen != 0)
+        {
+            if(USB_Transmit(Rx, RxLen) == 0)
+            {
+                RxLen = 0;
+            }
+        }
+
 	}
 }

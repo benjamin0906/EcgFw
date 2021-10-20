@@ -77,7 +77,7 @@
 
 /** USB Device initialization function. */
 void MX_USB_DEVICE_Init(void);
-extern void USB_Transmit(uint8 *Buffer, uint16 Size);
+extern uint8 USB_Transmit(uint8 *Buffer, uint16 Size);
 extern uint16 USB_Receive(uint8 *Buffer, uint16 Len);
 
 /*
