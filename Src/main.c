@@ -22,6 +22,9 @@
 #include "BasicTIM.h"
 #include "usb_device.h"
 #include "SysTick.h"
+#include "config.h"
+#include "Utilities.h"
+#include "SPI.h"
 
 #if !defined(__SOFT_FP__) && defined(__ARM_FP)
   #warning "FPU is not initialized, but the project is compiling for an FPU. Please initialize the FPU before use."
@@ -36,11 +39,11 @@ int main(void)
             .PLL_QDiv = QDiv_6,
             .CrystalOrInternal = Crystal,
             .CrystalClockFreq = 16000000};
-    dtGPIOConfig LedConfig = {.Type = PushPull, .Speed  = VeryHigh, .PUPD = NoPull, .Mode = Output};
 
-
+    dtGPIOConfig OutputConfig = {.Type = PushPull, .Speed  = VeryHigh, .PUPD = NoPull, .Mode = Output};
+    dtGPIOConfig SpiConfig = {.Type = PushPull, .Speed  = VeryHigh, .PUPD = NoPull, .Mode = Alt5};
     dtGPIOConfig USBConf = {.Type = PushPull, .Speed  = VeryHigh, .PUPD = NoPull, .Mode = Alt10};
-    dtGPIOConfig USBConfInput = {.Type = PushPull, .Speed  = Low, .PUPD = NoPull, .Mode = Input};
+    dtGPIOConfig InputConfig = {.Type = PushPull, .Speed  = Low, .PUPD = NoPull, .Mode = Input};
 
     RCC_ClockEnable(RCC_GPIOA, Enable);
     RCC_ClockEnable(RCC_GPIOB, Enable);
@@ -52,12 +55,21 @@ int main(void)
 
     SysTick_Init(144000);
 
-    GPIO_PinInit(PortA_15, LedConfig);
-    GPIO_PinInit(PortA_9, USBConfInput);
+    GPIO_PinInit(PortA_15, OutputConfig);
+    GPIO_PinInit(PortA_9, InputConfig);
     GPIO_PinInit(PortA_11, USBConf);
     GPIO_PinInit(PortA_12, USBConf);
+    GPIO_PinInit(ADAS_DRDY, InputConfig);
+    GPIO_PinInit(ADAS_CS, OutputConfig);
+    GPIO_PinInit(ADAS_SCLK, SpiConfig);
+    GPIO_PinInit(ADAS_SDI, SpiConfig);
+    GPIO_PinInit(ADAS_SDO, SpiConfig);
 
     MX_USB_DEVICE_Init();
+
+    dtSpiConf SpiConf = {.Instance = 1, .ChipSelectPin = ADAS_CS, .DataSize = 0, .LsbOrMsb = 0, .CHPA = 0, .CPOL = 0, .ClockDiv = 7};
+
+    SPI_Init(SpiConf);
 
     uint8 msg[] = "szia\n";
     uint8 Rx[8];
