@@ -17,14 +17,14 @@
  ******************************************************************************
  */
 
-#include "RCC.h"
 #include "GPIO.h"
 #include "BasicTIM.h"
-#include "usb_device.h"
-#include "SysTick.h"
-#include "config.h"
 #include "Utilities.h"
-#include "SPI.h"
+#include "Hal.h"
+#include "SysTick_red.h"
+#include "usb_device.h"
+#include "adasMngr.h"
+#include "DMA.h"
 
 #if !defined(__SOFT_FP__) && defined(__ARM_FP)
   #warning "FPU is not initialized, but the project is compiling for an FPU. Please initialize the FPU before use."
@@ -32,54 +32,29 @@
 
 int main(void)
 {
-    dtRccInitConfig RCCConf = {.Clock = 144000000,
-            .AHB_Presc = AHB_Presc1,
-            .APB1_Presc = APB_Presc4,
-            .APB2_Presc = APB_Presc2,
-            .PLL_QDiv = QDiv_6,
-            .CrystalOrInternal = Crystal,
-            .CrystalClockFreq = 16000000};
-
-    dtGPIOConfig OutputConfig = {.Type = PushPull, .Speed  = VeryHigh, .PUPD = NoPull, .Mode = Output};
-    dtGPIOConfig SpiConfig = {.Type = PushPull, .Speed  = VeryHigh, .PUPD = NoPull, .Mode = Alt5};
-    dtGPIOConfig USBConf = {.Type = PushPull, .Speed  = VeryHigh, .PUPD = NoPull, .Mode = Alt10};
-    dtGPIOConfig InputConfig = {.Type = PushPull, .Speed  = Low, .PUPD = NoPull, .Mode = Input};
-
-    RCC_ClockEnable(RCC_GPIOA, Enable);
-    RCC_ClockEnable(RCC_GPIOB, Enable);
-    RCC_ClockEnable(RCC_GPIOC, Enable);
-    RCC_ClockEnable(RCC_PWR, Enable);
-    RCC_ClockEnable(RCC_OTGFS, Enable);
-
-    RCC_ClockSet(RCCConf);
-
-    SysTick_Init(144000);
-
-    GPIO_PinInit(PortA_15, OutputConfig);
-    GPIO_PinInit(PortA_9, InputConfig);
-    GPIO_PinInit(PortA_11, USBConf);
-    GPIO_PinInit(PortA_12, USBConf);
-    GPIO_PinInit(ADAS_DRDY, InputConfig);
-    GPIO_PinInit(ADAS_CS, OutputConfig);
-    GPIO_PinInit(ADAS_SCLK, SpiConfig);
-    GPIO_PinInit(ADAS_SDI, SpiConfig);
-    GPIO_PinInit(ADAS_SDO, SpiConfig);
-
-    MX_USB_DEVICE_Init();
-
-    dtSpiConf SpiConf = {.Instance = 1, .ChipSelectPin = ADAS_CS, .DataSize = 0, .LsbOrMsb = 0, .CHPA = 0, .CPOL = 0, .ClockDiv = 7};
-
-    SPI_Init(SpiConf);
+    halInit();
 
     uint8 msg[] = "szia\n";
     uint8 Rx[8];
     uint16 RxLen = 0;
     uint32 Time = SysTick_GetTicks();
 
+    uint32 a[5] = {0x01234567,0x89abcdef,0x01234567,0x89abcdef,0x01234567};
+    uint32 b[5] = {0,0,0,0,0};
+    uint8 adas = 0;
+
+    dtDMA_S0CR DmaConfig = {.Word = 0};
+    DmaConfig.Field.CHSEL = DMA_CS3;
+    DmaConfig.Field.MSIZE = DMA_MEM_32;
+    DmaConfig.Field.PSIZE = DMA_PER_8;
+    DmaConfig.Field.MINC = 1;
+    DmaConfig.Field.DIR = DMA_PER2MEM;
+    DmaConfig.Field.PBURST = 0;
 
     /* Loop forever */
 	for(;;)
 	{
+	    adasMngr_Loop();
 	    if(IsPassed(Time, 1000))
 	    {
 	        Time = SysTick_GetTicks();
@@ -94,6 +69,15 @@ int main(void)
                 RxLen = 0;
             }
         }
-
+        if(adas == 0)
+        {
+            if(adasMngr_SetState(AdasMngrState_Testing) == TransitionDone) adas = 1;
+        }
+        else if(adas == 2)
+        {
+            if(adasMngr_SetState(AdasMngrState_Stopped) == TransitionDone) adas = 3;
+        }
 	}
 }
+
+
