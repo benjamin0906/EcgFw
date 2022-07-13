@@ -42,6 +42,7 @@ int main(void)
     uint32 a[5] = {0x01234567,0x89abcdef,0x01234567,0x89abcdef,0x01234567};
     uint32 b[5] = {0,0,0,0,0};
     uint8 adas = 0;
+    uint32 data[5];
 
     dtDMA_S0CR DmaConfig = {.Word = 0};
     DmaConfig.Field.CHSEL = DMA_CS3;
@@ -55,20 +56,16 @@ int main(void)
 	for(;;)
 	{
 	    adasMngr_Loop();
-	    if(IsPassed(Time, 1000))
+	    //if(IsPassed(Time, 1000))
 	    {
 	        Time = SysTick_GetTicks();
+	        if(adasMngr_GetReadData(&data[0]) != 0)
+	        {
 
-	        USB_Transmit(msg, 5);
+	            USB_Transmit(&data[0], 4);
+	        }
 	    }
-	    if(RxLen == 0) RxLen = USB_Receive(Rx, 8);
-        if(RxLen != 0)
-        {
-            if(USB_Transmit(Rx, RxLen) == 0)
-            {
-                RxLen = 0;
-            }
-        }
+
         if(adas == 0)
         {
             if(adasMngr_SetState(AdasMngrState_Testing) == TransitionDone) adas = 1;
