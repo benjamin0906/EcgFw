@@ -14,8 +14,7 @@
 #include "SPI.h"
 
 static uint32 TimeStamp;
-static uint32 TxBuff[20];
-static uint8 TxLen;
+static uint32 TxBuff[4];
 static uint8 RxLen;
 static uint32 RxBuff[20];
 static dtAdasMngrState adasMngrReqState;
@@ -39,7 +38,7 @@ dtAdasConfig AdasReadConfig = { .Registers.FrameCtrl        = {.RW = 0, .Address
                                 .Registers.EcgCtrl          = {.RW = 0, .Address = 0x01, }
 };
 
-uint32 readData[4][5];
+int32 readData[4][5];
 uint8 readDataWrIndex;
 uint8 readDataRdIndex;
 
@@ -55,7 +54,6 @@ void adasMngr_Loop(void)
 {
     AdasReqConfig.Registers.EcgCtrl.Fields.PWREN = 1;
     static dtReadState ReadState;
-    static uint8 DRDY = 0;
     switch(myState)
     {
         case AdasMngrState_Stopped:
@@ -89,6 +87,7 @@ void adasMngr_Loop(void)
                     ReadState = ReadState_StartRead;
                     MemCpyRigth(&RxBuff[1], &readData[readDataWrIndex][0], 5*4);
                     changeEndiannessArray(&readData[readDataWrIndex][0], 5);
+                    saturateI32(readData[readDataWrIndex][0], readData[readDataWrIndex][0], 24);
                     readDataWrIndex++;
                     readDataWrIndex &= 3;
                 }
@@ -103,7 +102,7 @@ uint8 adasMngr_GetReadData(uint32 *buffer)
     uint32 ret = 0;
     if(readDataWrIndex != readDataRdIndex)
     {
-        MemCpyRigth(&readData[readDataRdIndex++][0], buffer, 5);
+        MemCpyRigth(&readData[readDataRdIndex++][0], buffer, 5*sizeof(uint32));
         readDataRdIndex &= 3;
         ret = 1;
     }

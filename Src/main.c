@@ -34,13 +34,6 @@ int main(void)
 {
     halInit();
 
-    uint8 msg[] = "szia\n";
-    uint8 Rx[8];
-    uint16 RxLen = 0;
-    uint32 Time = SysTick_GetTicks();
-
-    uint32 a[5] = {0x01234567,0x89abcdef,0x01234567,0x89abcdef,0x01234567};
-    uint32 b[5] = {0,0,0,0,0};
     uint8 adas = 0;
     uint32 data[5];
 
@@ -56,23 +49,15 @@ int main(void)
 	for(;;)
 	{
 	    adasMngr_Loop();
-	    //if(IsPassed(Time, 1000))
-	    {
-	        Time = SysTick_GetTicks();
-	        if(adasMngr_GetReadData(&data[0]) != 0)
-	        {
+        if(adasMngr_GetReadData(&data[0]) != 0)
+        {
 
-	            USB_Transmit(&data[0], 4);
-	        }
-	    }
+            USB_Transmit(&data[0], 4);
+        }
 
         if(adas == 0)
         {
             if(adasMngr_SetState(AdasMngrState_Testing) == TransitionDone) adas = 1;
-        }
-        else if(adas == 2)
-        {
-            if(adasMngr_SetState(AdasMngrState_Stopped) == TransitionDone) adas = 3;
         }
 	}
 }
