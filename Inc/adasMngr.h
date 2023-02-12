@@ -25,5 +25,6 @@ typedef enum
 void adasMngr_Loop(void);
 dtStateTransition adasMngr_SetState(dtAdasMngrState ReqState);
 extern uint8 adasMngr_GetReadData(uint32 *buffer);
+extern void adasMngr_TriggerRead(void);
 
 #endif /* ADASDRIVER_ADASMNGR_H_ */

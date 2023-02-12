@@ -14,7 +14,7 @@
 #include "SPI.h"
 
 static uint32 TimeStamp;
-static uint32 TxBuff[4];
+static uint32 TxBuff[8];
 static uint8 RxLen;
 static uint32 RxBuff[20];
 static dtAdasMngrState adasMngrReqState;
@@ -29,7 +29,7 @@ dtAdasConfig AdasReqConfig = {  .Registers.FrameCtrl        = {.RW = 1, .Address
                                 .Registers.CmRefShieldCtrl  = {.RW = 1, .Address = 0x05, .Fields = {.LACM = 1, .LLCM = 1, .RACM = 1, .RLDEN = 1, .SHLDEN = 1}},
                                 .Registers.TestToneCtrl     = {.RW = 1, .Address = 0x08, .Fields = {.TONLA = 1, .TONTYPE = 0, .TONINT = 1, .TONEN = 1}},
                                 .Registers.FiltCtrl         = {.RW = 1, .Address = 0x0B, .Fields = {}},
-                                .Registers.EcgCtrl          = {.RW = 1, .Address = 0x01, .Fields = {. LAEN = 1, .LLEN = 1, .RAEN = 1, .V1EN = 1, .V2EN = 1, .CHCONFIG = 1, .VREFBUF = 1, .CLKEXT = 1, .MASTER = 1, .HP = 1, .CNVEN = 1, .PWREN = 1}}
+                                .Registers.EcgCtrl          = {.RW = 1, .Address = 0x01, .Fields = {. LAEN = 1, .LLEN = 1, .RAEN = 1, .V1EN = 1, .V2EN = 1, .CHCONFIG = 1, .GAIN=0, .VREFBUF = 1, .CLKEXT = 1, .MASTER = 1, .HP = 1, .CNVEN = 1, .PWREN = 1}}
 };
 dtAdasConfig AdasReadConfig = { .Registers.FrameCtrl        = {.RW = 0, .Address = 0x0A, },
                                 .Registers.CmRefShieldCtrl  = {.RW = 0, .Address = 0x05, },
@@ -41,6 +41,7 @@ dtAdasConfig AdasReadConfig = { .Registers.FrameCtrl        = {.RW = 0, .Address
 int32 readData[4][5];
 uint8 readDataWrIndex;
 uint8 readDataRdIndex;
+static dtReadState ReadState;
 
 void adasMngr_Loop(void);
 dtStateTransition adasMngr_SetState(dtAdasMngrState ReqState);
@@ -49,11 +50,11 @@ dtAdasMngrState StoppedStateHandler(void);
 dtAdasMngrState StandbyStateHandler(void);
 dtAdasMngrState TestingStateHandler(void);
 dtAdasMngrState NormalStateHandler(void);
+void adasMngr_TriggerRead(void);
 
 void adasMngr_Loop(void)
 {
     AdasReqConfig.Registers.EcgCtrl.Fields.PWREN = 1;
-    static dtReadState ReadState;
     switch(myState)
     {
         case AdasMngrState_Stopped:
@@ -74,20 +75,19 @@ void adasMngr_Loop(void)
         switch(ReadState)
         {
             case ReadState_StartRead:
-                if(GPIO_Get(ADAS_DRDY) == 0)
-                {
-                    RxLen = 0;
-                    SPI_Send(1, 0, 4, &RxBuff[0], 4*6, 0);
-                    ReadState = ReadState_WaitRead;
-                }
                 break;
             case ReadState_WaitRead:
-                if(SpiIdle == SPI_Status(1))
+                if(SpiIdle == ISPI_GetData(1, RxBuff, 28))
                 {
                     ReadState = ReadState_StartRead;
                     MemCpyRigth(&RxBuff[1], &readData[readDataWrIndex][0], 5*4);
                     changeEndiannessArray(&readData[readDataWrIndex][0], 5);
                     saturateI32(readData[readDataWrIndex][0], readData[readDataWrIndex][0], 24);
+                    saturateI32(readData[readDataWrIndex][1], readData[readDataWrIndex][1], 24);
+                    saturateI32(readData[readDataWrIndex][2], readData[readDataWrIndex][2], 24);
+                    readData[readDataWrIndex][0]>>=5;
+                    readData[readDataWrIndex][1]>>=5;
+                    readData[readDataWrIndex][2]>>=5;
                     readDataWrIndex++;
                     readDataWrIndex &= 3;
                 }
@@ -95,6 +95,12 @@ void adasMngr_Loop(void)
         }
 
     }
+}
+
+void adasMngr_TriggerRead(void)
+{
+    ISPI_Send(1, 0, 24);
+    ReadState = ReadState_WaitRead;
 }
 
 uint8 adasMngr_GetReadData(uint32 *buffer)
@@ -153,22 +159,30 @@ dtAdasMngrState StoppedStateHandler(void)
             }
             break;
         case StoppedState_SendConf:
-            SPI_Send(1, &AdasReqConfig.StartWord, sizeof(AdasReqConfig), 0, 0, 0);
+            ISPI_Send(1, &AdasReqConfig.StartWord, sizeof(AdasReqConfig));
             State = StoppedState_CheckSendConf;
             break;
         case StoppedState_CheckSendConf:
-            if(SpiIdle == SPI_Status(1))
+            if(SpiIdle == ISPI_GetData(1, 0, 0))
             {
                 State = StoppedState_ReadConf;
             }
             break;
         case StoppedState_ReadConf:
-            SPI_Send(1, &AdasReadConfig.StartWord, sizeof(AdasReadConfig), &AdasReadConfig.StartWord, sizeof(AdasReadConfig), 4);
+        {
+            uint32 temp[sizeof(AdasReadConfig)/4+1];
+            memcpy_reverse_32bit(&AdasReadConfig.StartWord, temp, sizeof(AdasReadConfig)/4);
+            temp[sizeof(AdasReadConfig)] = 0;
+            ISPI_Send(1, temp, sizeof(AdasReadConfig)+4);
             State = StoppedState_CheckReadConf;
+        }
             break;
         case StoppedState_CheckReadConf:
-            if(SpiIdle == SPI_Status(1))
+        {
+            uint32 t[sizeof(AdasReadConfig)/4+1];
+            if(SpiIdle == ISPI_GetData(1, &t, sizeof(AdasReadConfig)+4))
             {
+                memcpy_reverse_32bit(&t[1], &AdasReadConfig.StartWord, sizeof(AdasReadConfig)/4);
                 uint8 i;
                 for(i = 0; (i < sizeof(AdasReadConfig)/4) && (*(&AdasReadConfig.StartWord+i) == (*(&AdasReqConfig.StartWord+i)&0xFFFFFF7F)); i++);
                 if(i == (sizeof(AdasReadConfig)/4))
@@ -176,6 +190,7 @@ dtAdasMngrState StoppedStateHandler(void)
                     State = StoppedState_Done;
                 }
             }
+        }
             break;
         case StoppedState_Done:
             ret = AdasMngrState_Standby;
@@ -228,11 +243,13 @@ dtAdasMngrState StandbyStateHandler(void)
             TxBuff[0] = 0x40000000;
             TxBuff[1] = 0x00000000;
             changeEndiannessArray(TxBuff, 1);
-            SPI_Send(1, TxBuff, 4, 0, 0, 0);
+            //SPI_Send(1, TxBuff, 4, 0, 0, 0);
+            ISPI_Send(1, TxBuff, 28);
             State = StandbyState_StartReadFrame_Check;
             break;
         case StandbyState_StartReadFrame_Check:
-            if(SpiIdle == SPI_Status(1))
+            if(SpiIdle == ISPI_GetData(1, 0, 0))
+            //if(SpiIdle == SPI_Status(1))
             {
                 TxBuff[1] = 0x00000000;
                 State = StandbyState_Neutral;
