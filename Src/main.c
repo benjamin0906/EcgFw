@@ -25,34 +25,94 @@
 #include "usb_device.h"
 #include "adasMngr.h"
 #include "DMA.h"
+#include "SPI.h"
+#include "Filters/Filters_Task.h"
+#include "Filters/Filters_Proc.h"
+
 
 #if !defined(__SOFT_FP__) && defined(__ARM_FP)
   #warning "FPU is not initialized, but the project is compiling for an FPU. Please initialize the FPU before use."
 #endif
+
+void TestGpioSet(void)
+{
+    GPIO_Set(PortA_15, Set);
+}
+
+void TestGpioClear(void)
+{
+    GPIO_Set(PortA_15, Clear);
+}
+
+void BundleAdasTriggers(void)
+{
+    static BaselineDivider = 0;
+    adasMngr_TriggerRead();
+    IFilters_TriggerNewProcess();
+    IFilters_NewValue(1);
+    /*BaselineDivider++;
+    if(BaselineDivider == 20)
+    {
+        IFilters_TriggerNewProcess();
+        if(adasMngr_GetReadData(&data[0]) != 0)
+    }*/
+}
 
 int main(void)
 {
     halInit();
 
     uint8 adas = 0;
-    uint32 data[5];
+    uint32 data[5] = {0,0,0,0,0};
 
-    dtDMA_S0CR DmaConfig = {.Word = 0};
-    DmaConfig.Field.CHSEL = DMA_CS3;
-    DmaConfig.Field.MSIZE = DMA_MEM_32;
-    DmaConfig.Field.PSIZE = DMA_PER_8;
-    DmaConfig.Field.MINC = 1;
-    DmaConfig.Field.DIR = DMA_PER2MEM;
-    DmaConfig.Field.PBURST = 0;
+    int32 FirWeightQ15_80dB_100Hz_0_05_4[129] = {
+            2, 2, 3, 4, 5, 6, 7, 7, 8, 8,
+            8, 7, 6, 4, 2, -1, -6, -11, -17, -24,
+            -32, -40, -49, -59, -69, -79, -89, -98, -106, -113,
+            -118, -121, -121, -118, -111, -100, -85, -65, -40, -10,
+            25, 66, 112, 163, 220, 280, 345, 414, 485, 558,
+            633, 709, 784, 857, 929, 997, 1060, 1119, 1172, 1218,
+            1256, 1287, 1309, 1323, 1327, 1323, 1309, 1287, 1256, 1218,
+            1172, 1119, 1060, 997, 929, 857, 784, 709, 633, 558,
+            485, 414, 345, 280, 220, 163, 112, 66, 25, -10,
+            -40, -65, -85, -100, -111, -118, -121, -121, -118, -113,
+            -106, -98, -89, -79, -69, -59, -49, -40, -32, -24,
+            -17, -11, -6, -1, 2, 4, 6, 7, 8, 8,
+            8, 7, 7, 6, 5, 4, 3, 2, 2
+        };
+
+    uint8 SampleCntr = 0;
+    int32 BaseLineSamples[sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0])];
+    int32 Baseline = 0;
+    int32 AvgDataForBaseLine = 0;
+
+    for(uint8 i = 0; i< sizeof(BaseLineSamples)/sizeof(BaseLineSamples[0]); i++) BaseLineSamples[i] = 0;
+
 
     /* Loop forever */
 	for(;;)
 	{
 	    adasMngr_Loop();
+	    Filters_Runnable();
         if(adasMngr_GetReadData(&data[0]) != 0)
         {
+            int32 ValueToBeSent = data[0];
+            AvgDataForBaseLine += data[0];
+            SampleCntr++;
+            if(SampleCntr == 20)
+            {
+                int64 output = 0;
+                SampleCntr = 0;
+                memcpy_reverse_32bit(&BaseLineSamples[0], &BaseLineSamples[1], (sizeof(BaseLineSamples)/sizeof(BaseLineSamples[0])) - 1);
+                BaseLineSamples[0] = AvgDataForBaseLine/20;
+                output = multiplyArrays(BaseLineSamples, FirWeightQ15_80dB_100Hz_0_05_4, sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0]));
 
-            USB_Transmit(&data[0], 4);
+                Baseline = output >> 15;
+                AvgDataForBaseLine = 0;
+            }
+            ValueToBeSent -= Baseline;
+            USB_Transmit(&ValueToBeSent, 4);
+            //USB_Transmit(&data[0], 4);
         }
 
         if(adas == 0)

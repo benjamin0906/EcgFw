@@ -15,8 +15,28 @@
 #include "config.h"
 #include "TIM3.h"
 #include "NVIC.h"
+#include "EXTI.h"
+#include "SysCfg.h"
+#include "adasMngr.h"
+#include "Hal_Internal.h"
+#include "main.h"
 
 void halInit(void);
+
+void testGpio(void)
+{
+    static int a = 0;
+    if(a == 0)
+    {
+        a = 1;
+        GPIO_Set(PortB_7, Clear);
+    }
+    else
+    {
+        a = 0;
+        GPIO_Set(PortB_7, Set);
+    }
+}
 
 void halInit(void)
 {
@@ -44,13 +64,17 @@ void halInit(void)
     RCC_ClockEnable(RCC_OTGFS, Enable);
     RCC_ClockEnable(RCC_TIM3, Enable);
     RCC_ClockEnable(RCC_SPI1, Enable);
+    RCC_ClockEnable(RCC_SPI3, Enable);
+    RCC_ClockEnable(RCC_DMA1, Enable);
     RCC_ClockEnable(RCC_DMA2, Enable);
+    RCC_ClockEnable(RCC_SYSCFG, Enable);
 
     RCC_ClockSet(RCCConf);
 
     SysTick_Init(160000);
 
     GPIO_PinInit(PortA_15, OutputConfig);
+    GPIO_PinInit(PortB_7, OutputConfig);
     GPIO_PinInit(PortA_9, InputConfig);
     GPIO_PinInit(PortA_11, USBConf);
     GPIO_PinInit(PortA_12, USBConf);
@@ -65,16 +89,22 @@ void halInit(void)
 
     MX_USB_DEVICE_Init();
 
-    dtSpiConf SpiConf = {.Instance = 1, .ChipSelectPin = ADAS_CS, .DataSize = 0, .LsbOrMsb = 0, .CHPA = 1, .CPOL = 1, .ClockDiv = 3, .TXDMA = 1, .RXDMA = 1};
+    dtSpiConf SpiConf = SPI_1_CONFIG;
+    ISPI_Init(SpiConf);
+    NVIC_EnableIRQ(DMA_IRQ(SPI_1_DMA_RX_INSTANCE,SPI_1_DMA_RX_STREAM));
 
-    SPI_Init(SpiConf);
-    NVIC_EnableIRQ(IRQ_SPI1);
+    NVIC_EnableIRQ(DMA_IRQ(FILTER_1_RAW_VALUE_DMA_INSTANCE, FILTER_1_RAW_VALUE_DMA_STREAM));
+    NVIC_EnableIRQ(DMA_IRQ(FILTER_1_OUT_VALUE_DMA_INSTANCE, FILTER_1_OUT_VALUE_DMA_STREAM));
+    IFilters_Init();
 
     dtGPT1Config TIM3Conf = {.ARR = 18000, .Direction = 1, .Mode = Oc4, .OCMode = OcToggle, .OcPolarity = ActiveHigh, .Presc = 0};
     TIM3Conf.ARR = (RCC_GetClock(APB1_Timer)/8000000/2)-1;
-
     TIM3_Init(TIM3Conf);
 
+    dtExtiConfig ExtiCfg = {.EventMask = 0, .InterruptMask = 1, .FallingEdgeTrigger = 1, .RisingEdgeTrigger = 0};
+    ISysCfg_SetExti(3,ExtiPort_A);
+    IExti_Config(3, ExtiCfg, BundleAdasTriggers);
+    NVIC_EnableIRQ(IRQ_EXTI3);
 }
 
 #endif /* HAL_C_ */
