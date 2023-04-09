@@ -11,6 +11,6 @@
 #include "types.h"
 
 extern void IFilters_TriggerNewProcess(void);
-extern void IFilters_NewValue(int32 Value);
+extern void IFilters_NewValue(uint8 FilterId, int32 Value);
 
 #endif /* FILTERS_FILTERS_PROC_H_ */

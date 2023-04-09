@@ -11,150 +11,318 @@
 #include "Filters.h"
 #include "Config.h"
 
-extern void TestGpioSet(void);
-extern void TestGpioClear(void);
+#define DMA_DATA_WIDTH 32
 
 /* Q15, 80dB, 100 Hz, 0.05..4 Hz */
 const int32 FirWeightQ15_80dB_100Hz_0_05_4[129] = {
-            2, 2, 3, 4, 5, 6, 7, 7, 8, 8,
-            8, 7, 6, 4, 2, -1, -6, -11, -17, -24,
-            -32, -40, -49, -59, -69, -79, -89, -98, -106, -113,
-            -118, -121, -121, -118, -111, -100, -85, -65, -40, -10,
-            25, 66, 112, 163, 220, 280, 345, 414, 485, 558,
-            633, 709, 784, 857, 929, 997, 1060, 1119, 1172, 1218,
-            1256, 1287, 1309, 1323, 1327, 1323, 1309, 1287, 1256, 1218,
-            1172, 1119, 1060, 997, 929, 857, 784, 709, 633, 558,
-            485, 414, 345, 280, 220, 163, 112, 66, 25, -10,
-            -40, -65, -85, -100, -111, -118, -121, -121, -118, -113,
-            -106, -98, -89, -79, -69, -59, -49, -40, -32, -24,
-            -17, -11, -6, -1, 2, 4, 6, 7, 8, 8,
-            8, 7, 7, 6, 5, 4, 3, 2, 2
-        };
+        0, 1, 1, 1, 2, 2, 3, 3, 4, 4,
+        4, 4, 3, 2, 1, -1, -3, -7, -10, -15,
+        -21, -27, -34, -41, -49, -57, -66, -74, -81, -88,
+        -93, -97, -98, -97, -93, -85, -73, -57, -35, -9,
+        22, 59, 102, 150, 203, 261, 324, 391, 462, 535,
+        610, 686, 762, 838, 911, 981, 1047, 1109, 1164, 1212,
+        1252, 1285, 1308, 1322, 1327, 1322, 1308, 1285, 1252, 1212,
+        1164, 1109, 1047, 981, 911, 838, 762, 686, 610, 535,
+        462, 391, 324, 261, 203, 150, 102, 59, 22, -9,
+        -35, -57, -73, -85, -93, -97, -98, -97, -93, -88,
+        -81, -74, -66, -57, -49, -41, -34, -27, -21, -15,
+        -10, -7, -3, -1, 1, 2, 3, 4, 4, 4,
+        4, 3, 3, 2, 2, 1, 1, 1, 0};
 
 int32 RawSamples[2][sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0])];
 int32 FilterOutputs[2][sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0])];
-int32 OutputValue;
-int32 NewRawValue;
-uint8 BufferFlags;
-dtBufferState BufferState;
-dtFilterState FilterState;
+const dtDmaMapEntry DmaMap[] = {{FILTER_1_ASSIGNED_DMA_INSTANCE, FILTER_1_ASSIGNED_DMA_STREAM},
+                            {FILTER_2_ASSIGNED_DMA_INSTANCE, FILTER_2_ASSIGNED_DMA_STREAM},
+                            {FILTER_3_ASSIGNED_DMA_INSTANCE, FILTER_3_ASSIGNED_DMA_STREAM},
+                            {FILTER_4_ASSIGNED_DMA_INSTANCE, FILTER_4_ASSIGNED_DMA_STREAM},
+                            {FILTER_5_ASSIGNED_DMA_INSTANCE, FILTER_5_ASSIGNED_DMA_STREAM},
+                            {FILTER_6_ASSIGNED_DMA_INSTANCE, FILTER_6_ASSIGNED_DMA_STREAM}};
+dtFilterInfoForDma BufferInfoIdOnThisDma[6];
+dtShitftJob ShiftJobs[15];
+
+dtBufferInfo BufferInfo[] = {   {.State = BufferState_1isActive, .Buffer1 = &RawSamples[0][0], .Buffer2 = &RawSamples[1][0], .ElementSize = 4, .Size = sizeof(RawSamples[0])},
+                                {.State = BufferState_1isActive, .Buffer1 = &FilterOutputs[0][0], .Buffer2 = &FilterOutputs[1][0], .ElementSize = 4, .Size = sizeof(FilterOutputs[0])}};
+dtFilterInfo FilterInfo[1];
 
 void IFilters_Init(void);
 void IFilters_TriggerNewProcess(void);
-void IFilters_NewValue(int32 Value);
+void IFilters_NewValue(uint8 FilterId, int32 Value);
 void Filters_Runnable(void);
-void Filters_RawShiftDoneCallback(uint8 Flags, uint32 Num);
-void Filters_OutShiftDoneCallback(uint8 Flags, uint32 Num);
+int32 IFilters_GetOutput(uint8 FilterId);
+static void SetBufferToBeShifted(uint8 Id);
+static dtAssignState AssignShiftingToDma(void);
+void Dma1CallBack(uint8 Flags, uint32 Num);
+void Dma2CallBack(uint8 Flags, uint32 Num);
+void Dma3CallBack(uint8 Flags, uint32 Num);
+void Dma4CallBack(uint8 Flags, uint32 Num);
+void Dma5CallBack(uint8 Flags, uint32 Num);
+void Dma6CallBack(uint8 Flags, uint32 Num);
+
+static inline void TriggerNewProcessOnFilter(uint8 Id);
 
 void IFilters_Init()
 {
+    void (*DmaCallBacks[6])(uint8 Flags, uint32 Num) = {Dma1CallBack, Dma2CallBack, Dma3CallBack, Dma4CallBack, Dma5CallBack, Dma6CallBack};
     dtDmaConfig DmaCfg;
-    DmaCfg.Mem0Ptr              = &RawSamples[1][0];
+    DmaCfg.Mem0Ptr              = 0;
     DmaCfg.Mem1Ptr              = 0;
-    DmaCfg.PerPtr               = &RawSamples[0][0];
+    DmaCfg.PerPtr               = 0;
     DmaCfg.Priority             = 0;//very high
+#if DMA_DATA_WIDTH == 32
     DmaCfg.MemoryDataSize       = 2;//byte
     DmaCfg.PeripheralDataSize   = 2;//byte
+#endif
     DmaCfg.MemAddrInc           = 1;
     DmaCfg.PerAddrInc           = 1;
     DmaCfg.CircularMode         = 0;
     DmaCfg.TransferDirection    = 2;
-    DmaCfg.Instance             = FILTER_1_RAW_VALUE_DMA_INSTANCE;
-    DmaCfg.Stream               = FILTER_1_RAW_VALUE_DMA_STREAM;
     DmaCfg.RequestChannel       = 0;
-    IDMA_Config(&DmaCfg, Filters_RawShiftDoneCallback);
-
-
-    DmaCfg.Mem0Ptr              = &FilterOutputs[1][0];
-    DmaCfg.PerPtr               = &FilterOutputs[0][0];
-    DmaCfg.Instance             = FILTER_1_OUT_VALUE_DMA_INSTANCE;
-    DmaCfg.Stream               = FILTER_1_OUT_VALUE_DMA_STREAM;
-    IDMA_Config(&DmaCfg, Filters_OutShiftDoneCallback);
-
-    memset_32bit(RawSamples, 0, sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0]));
-    memset_32bit(FilterOutputs, 0, sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0]));
-
-    uint8 i;
-    for(i = 0; i < 20; i++)
+    uint16 i;
+    for(i = 0; i < (sizeof(DmaMap)/sizeof(DmaMap[0])); i++)
     {
-        IFilters_TriggerNewProcess();
-        Filters_Runnable();
-        Filters_Runnable();
-        IFilters_NewValue(1);
-        Filters_Runnable();
-        Filters_Runnable();
+        DmaCfg.Instance             = DmaMap[i].Instance;
+        DmaCfg.Stream               = DmaMap[i].Stream;
+        IDMA_Config(&DmaCfg, DmaCallBacks[i]);
     }
+    for(i = 0; i < (sizeof(RawSamples[0])/sizeof(RawSamples[0][0])); i++)
+    {
+        RawSamples[0][i] = i;
+        RawSamples[1][i] = i;
+        FilterOutputs[0][i] = i;
+        FilterOutputs[1][i] = i;
+    }
+
+    FilterInfo[0].RawBuffers[0] = RawSamples[0];
+    FilterInfo[0].RawBuffers[1] = RawSamples[1];
+    FilterInfo[0].OutBuffers[0] = FilterOutputs[0];
+    FilterInfo[0].OutBuffers[1] = FilterOutputs[1];
+    FilterInfo[0].Size          = sizeof(RawSamples[0])/sizeof(RawSamples[0][0]);
+    FilterInfo[0].ElementSizeCode   = 2;
+}
+
+static inline void TriggerNewProcessOnFilter(uint8 Id)
+{
+    FilterInfo[Id].Flags.Flags.FilterCalcActive = 1;
+    FilterInfo[Id].Flags.Flags.OutBufShiftDone = 0;
+    FilterInfo[Id].Flags.Flags.RawBufShiftDone = 0;
+    FilterInfo[Id].Flags.Flags.NewCalcDone = 0;
+    FilterInfo[Id].Flags.Flags.NewValueReady = 0;
+#if DMA_DATA_WIDTH == 32
+    FilterInfo[Id].OutValue = FilterInfo[Id].OutBuffers[FilterInfo[Id].Flags.Flags.OutActiveBlockId][FilterInfo[Id].Size - 1];
+#elif DMA_DATA_WIDTH == 8
+    FilterInfo[Id].OutValue = FilterInfo[Id].OutBuffers[FilterInfo[Id].Flags.Flags.OutActiveBlockId][(FilterInfo[Id].Size>>FilterInfo[Id].ElementSizeCode) - 1];
+#endif
+    SetBufferToBeShifted(Id);
 }
 
 void Filters_Runnable(void)
 {
-    static int32 tempOutValue = 0;
-    switch(FilterState)
+    uint8 FilterInfoLooper;
+    for(FilterInfoLooper = 0; FilterInfoLooper < (sizeof(FilterInfo)/sizeof(FilterInfo[0])); FilterInfoLooper++)
     {
-        case FilterState_Ready:
-            break;
-        case FilterState_RawShiftWait:
-            if(FLAG_GET(BufferFlags, FLAG_RAW_BUFFER_READY) == 0)
+        if(FilterInfo[FilterInfoLooper].Flags.Flags.FilterCalcActive != 0)
+        {
+            /* Check if Raw shifting is done */
+            if(FilterInfo[FilterInfoLooper].Flags.Flags.RawBufShiftDone != 0)
             {
-                break;
+                if(FilterInfo[FilterInfoLooper].Flags.Flags.NewCalcDone == 0)
+                {
+                    /* Not yet calculated new output value */
+                    if(FilterInfo[FilterInfoLooper].Flags.Flags.NewValueReady != 0)
+                    {
+                        RawSamples[FilterInfo[FilterInfoLooper].Flags.Flags.RawActiveBlockId][0] = FilterInfo[FilterInfoLooper].NewValue;
+                        int64 t = multiplyArrays(&RawSamples[FilterInfo[FilterInfoLooper].Flags.Flags.RawActiveBlockId][0], FirWeightQ15_80dB_100Hz_0_05_4, sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0]));
+                        FilterInfo[FilterInfoLooper].NewOutValue = (int32)(t >> 15);
+                        //FilterInfo[FilterInfoLooper].NewOutValue >>= 15;
+                        FilterInfo[FilterInfoLooper].Flags.Flags.NewCalcDone = 1;
+                    }
+                }
+
+                if(FilterInfo[FilterInfoLooper].Flags.Flags.OutBufShiftDone != 0)
+                {
+                    if(FilterInfo[FilterInfoLooper].Flags.Flags.NewCalcDone != 0)
+                    {
+                        /* Output buffer shifting is done the new output value van be added to it */
+                        FilterOutputs[FilterInfo[FilterInfoLooper].Flags.Flags.OutActiveBlockId][0] = FilterInfo[FilterInfoLooper].NewOutValue;
+
+                        /* Deactivate calculation process */
+                        FilterInfo[FilterInfoLooper].Flags.Flags.FilterCalcActive = 0;
+                    }
+                }
             }
-        case FilterState_Calculating:
-            if(FLAG_GET(BufferFlags, FLAG_NEW_RAW_VALUE) != 0)
-            {
-                RawSamples[BufferState][0] = NewRawValue;
-                tempOutValue = multiplyArrays(&RawSamples[BufferState][0], FirWeightQ15_80dB_100Hz_0_05_4, sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0]));
-                tempOutValue >>= 15;
-                FilterState = FilterState_OutShiftWait;
-            }
-            else
-            {
-                break;
-            }
-        case FilterState_OutShiftWait:
-            if(FLAG_GET(BufferFlags, FLAG_OUT_BUFFER_READY) != 0)
-            {
-                FilterOutputs[BufferState][0] = tempOutValue;
-                FilterState = FilterState_Ready;
-                TestGpioClear();
-            }
+        }
     }
 }
 
-void Filters_RawShiftDoneCallback(uint8 Flags, uint32 Num)
+static void SetBufferToBeShifted(uint8 Id)
 {
-    FLAG_SET(BufferFlags, FLAG_RAW_BUFFER_READY);
+    uint8 looper = 0;
+    while((looper < 15) && (ShiftJobs[looper].size != 0))
+    {
+        looper ++;
+    }
+    if(looper < 15)
+    {
+        ShiftJobs[looper].SrcPtr = FilterInfo[Id].RawBuffers[FilterInfo[Id].Flags.Flags.RawActiveBlockId];
+#if DMA_DATA_WIDTH == 32
+        ShiftJobs[looper].size = FilterInfo[Id].Size - 1;
+#elif DMA_DATA_WIDTH == 8
+        ShiftJobs[looper].size = FilterInfo[Id].Size - (1 << FilterInfo[Id].ElementSizeCode);
+#endif
+        if(FilterInfo[Id].Flags.Flags.RawActiveBlockId != 0)
+        {
+            ShiftJobs[looper].DstPtr = FilterInfo[Id].RawBuffers[0];
+            FilterInfo[Id].Flags.Flags.RawActiveBlockId = 0;
+        }
+        else
+        {
+            ShiftJobs[looper].DstPtr = FilterInfo[Id].RawBuffers[1];
+            FilterInfo[Id].Flags.Flags.RawActiveBlockId = 1;
+        }
+        ShiftJobs[looper].DstPtr += (1 << FilterInfo[Id].ElementSizeCode);
+        ShiftJobs[looper].InfoForDma.FilterIndex = Id;
+        ShiftJobs[looper].InfoForDma.RawOrOutBuff = 1;
+
+        looper ++;
+
+        ShiftJobs[looper].SrcPtr = FilterInfo[Id].OutBuffers[FilterInfo[Id].Flags.Flags.OutActiveBlockId];
+#if DMA_DATA_WIDTH == 32
+        ShiftJobs[looper].size = FilterInfo[Id].Size - 1;
+#elif DMA_DATA_WIDTH == 8
+        ShiftJobs[looper].size = FilterInfo[Id].Size - (1 << FilterInfo[Id].ElementSizeCode);
+#endif
+        if(FilterInfo[Id].Flags.Flags.OutActiveBlockId != 0)
+        {
+            ShiftJobs[looper].DstPtr = FilterInfo[Id].OutBuffers[0];
+            FilterInfo[Id].Flags.Flags.OutActiveBlockId = 0;
+        }
+        else
+        {
+            ShiftJobs[looper].DstPtr = FilterInfo[Id].OutBuffers[1];
+            FilterInfo[Id].Flags.Flags.OutActiveBlockId = 1;
+        }
+        ShiftJobs[looper].DstPtr += (1 << FilterInfo[Id].ElementSizeCode);
+        ShiftJobs[looper].InfoForDma.FilterIndex = Id;
+        ShiftJobs[looper].InfoForDma.RawOrOutBuff = 0;
+    }
 }
 
-void Filters_OutShiftDoneCallback(uint8 Flags, uint32 Num)
+
+static dtAssignState AssignShiftingToDma(void)
 {
-    FLAG_SET(BufferFlags, FLAG_OUT_BUFFER_READY);
+    dtAssignState ret = AssignState_NothingToShift;
+    uint8 DmaLooper = 0;
+    uint8 JobLooper = 0;
+    while((DmaLooper < 6) && (JobLooper < 15))
+    {
+        if(IDMA_IsFree(DmaMap[DmaLooper].Instance, DmaMap[DmaLooper].Stream) != 0)
+        {
+            while((JobLooper < 15) && (ShiftJobs[JobLooper].size == 0))
+            {
+               JobLooper ++;
+            }
+            if(JobLooper < 15)
+            {
+                BufferInfoIdOnThisDma[DmaLooper] = ShiftJobs[JobLooper].InfoForDma;
+                DMA_StartWithNew(DmaMap[DmaLooper].Instance, DmaMap[DmaLooper].Stream, ShiftJobs[JobLooper].size, ShiftJobs[JobLooper].SrcPtr, ShiftJobs[JobLooper].DstPtr);
+
+                /* Job is started it can be cleared */
+                ShiftJobs[JobLooper].size = 0;
+            }
+        }
+        DmaLooper++;
+    }
+    if(DmaLooper == 6) ret = AssignState_WaitingForDma;
+
+
+    return ret;
 }
 
 void IFilters_TriggerNewProcess(void)
 {
-    TestGpioSet();
-    FilterState = FilterState_RawShiftWait;
-    FLAG_CLEAR(BufferFlags, FLAG_RAW_BUFFER_READY);
-    FLAG_CLEAR(BufferFlags, FLAG_OUT_BUFFER_READY);
-    FLAG_CLEAR(BufferFlags, FLAG_NEW_RAW_VALUE);
-    if(BufferState == BufferState_Buffer0)
+    TriggerNewProcessOnFilter(0);
+    AssignShiftingToDma();
+}
+
+void IFilters_NewValue(uint8 FilterId, int32 Value)
+{
+    FilterInfo[FilterId].NewValue = Value;
+    FilterInfo[FilterId].Flags.Flags.NewValueReady = 1;
+}
+
+int32 IFilters_GetOutput(uint8 FilterId)
+{
+    return FilterInfo[FilterId].OutValue;
+}
+
+void Dma1CallBack(uint8 Flags, uint32 Num)
+{
+    if(BufferInfoIdOnThisDma[0].RawOrOutBuff != 0)
     {
-        OutputValue = FilterOutputs[0][sizeof(FilterOutputs[0])/sizeof(FilterOutputs[0][0])-1];
-        BufferState = BufferState_Buffer1;
-        DMA_StartWithNew(FILTER_1_RAW_VALUE_DMA_INSTANCE, FILTER_1_RAW_VALUE_DMA_STREAM, (sizeof(RawSamples[0])/sizeof(RawSamples[0][0]))-1, &RawSamples[0][0], &RawSamples[1][1]);
-        DMA_StartWithNew(FILTER_1_OUT_VALUE_DMA_INSTANCE, FILTER_1_OUT_VALUE_DMA_STREAM, (sizeof(FilterOutputs[0])/sizeof(FilterOutputs[0][0]))-1, &FilterOutputs[0][0], &FilterOutputs[1][1]);
+        FilterInfo[BufferInfoIdOnThisDma[0].FilterIndex].Flags.Flags.RawBufShiftDone = 1;
     }
     else
     {
-        OutputValue = FilterOutputs[1][sizeof(FilterOutputs[0])/sizeof(FilterOutputs[0][0])-1];
-        BufferState = BufferState_Buffer0;
-        DMA_StartWithNew(FILTER_1_RAW_VALUE_DMA_INSTANCE, FILTER_1_RAW_VALUE_DMA_STREAM, (sizeof(RawSamples[1])/sizeof(RawSamples[1][0]))-1, &RawSamples[1][0], &RawSamples[0][1]);
-        DMA_StartWithNew(FILTER_1_OUT_VALUE_DMA_INSTANCE, FILTER_1_OUT_VALUE_DMA_STREAM, (sizeof(FilterOutputs[1])/sizeof(FilterOutputs[1][0]))-1, &FilterOutputs[1][0], &FilterOutputs[0][1]);
+        FilterInfo[BufferInfoIdOnThisDma[0].FilterIndex].Flags.Flags.OutBufShiftDone = 1;
     }
 }
 
-void IFilters_NewValue(int32 Value)
+void Dma2CallBack(uint8 Flags, uint32 Num)
 {
-    NewRawValue = Value;
-    FLAG_SET(BufferFlags, FLAG_NEW_RAW_VALUE);
+    if(BufferInfoIdOnThisDma[1].RawOrOutBuff != 0)
+    {
+        FilterInfo[BufferInfoIdOnThisDma[1].FilterIndex].Flags.Flags.RawBufShiftDone = 1;
+    }
+    else
+    {
+        FilterInfo[BufferInfoIdOnThisDma[1].FilterIndex].Flags.Flags.OutBufShiftDone = 1;
+    }
+}
+
+void Dma3CallBack(uint8 Flags, uint32 Num)
+{
+    if(BufferInfoIdOnThisDma[2].RawOrOutBuff != 0)
+    {
+        FilterInfo[BufferInfoIdOnThisDma[2].FilterIndex].Flags.Flags.RawBufShiftDone = 1;
+    }
+    else
+    {
+        FilterInfo[BufferInfoIdOnThisDma[2].FilterIndex].Flags.Flags.OutBufShiftDone = 1;
+    }
+}
+
+void Dma4CallBack(uint8 Flags, uint32 Num)
+{
+    if(BufferInfoIdOnThisDma[3].RawOrOutBuff != 0)
+    {
+        FilterInfo[BufferInfoIdOnThisDma[3].FilterIndex].Flags.Flags.RawBufShiftDone = 1;
+    }
+    else
+    {
+        FilterInfo[BufferInfoIdOnThisDma[3].FilterIndex].Flags.Flags.OutBufShiftDone = 1;
+    }
+}
+
+void Dma5CallBack(uint8 Flags, uint32 Num)
+{
+    if(BufferInfoIdOnThisDma[4].RawOrOutBuff != 0)
+    {
+        FilterInfo[BufferInfoIdOnThisDma[4].FilterIndex].Flags.Flags.RawBufShiftDone = 1;
+    }
+    else
+    {
+        FilterInfo[BufferInfoIdOnThisDma[4].FilterIndex].Flags.Flags.OutBufShiftDone = 1;
+    }
+}
+
+void Dma6CallBack(uint8 Flags, uint32 Num)
+{
+    if(BufferInfoIdOnThisDma[5].RawOrOutBuff != 0)
+    {
+        FilterInfo[BufferInfoIdOnThisDma[5].FilterIndex].Flags.Flags.RawBufShiftDone = 1;
+    }
+    else
+    {
+        FilterInfo[BufferInfoIdOnThisDma[5].FilterIndex].Flags.Flags.OutBufShiftDone = 1;
+    }
 }
