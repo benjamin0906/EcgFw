@@ -77,10 +77,11 @@ void adasMngr_Loop(void)
             case ReadState_StartRead:
                 break;
             case ReadState_WaitRead:
-                if(SpiIdle == ISPI_GetData(1, RxBuff, 28))
+                if(SpiDataAvailable == ISPI_GetStatus(1))
                 {
+                    ISPI_GetData(1, RxBuff, 28);
                     ReadState = ReadState_StartRead;
-                    MemCpyRigth(&RxBuff[1], &readData[readDataWrIndex][0], 5*4);
+                    memcpy_reverse_32bit(&RxBuff[1], &readData[readDataWrIndex][0], 5);
                     changeEndiannessArray(&readData[readDataWrIndex][0], 5);
                     saturateI32(readData[readDataWrIndex][0], readData[readDataWrIndex][0], 24);
                     saturateI32(readData[readDataWrIndex][1], readData[readDataWrIndex][1], 24);
@@ -109,6 +110,7 @@ uint8 adasMngr_GetReadData(uint32 *buffer)
     if(readDataWrIndex != readDataRdIndex)
     {
         MemCpyRigth(&readData[readDataRdIndex++][0], buffer, 5*sizeof(uint32));
+        //memcpy_reverse_32bit(&RxBuff[1], buffer, 4);
         readDataRdIndex &= 3;
         ret = 1;
     }
@@ -163,7 +165,7 @@ dtAdasMngrState StoppedStateHandler(void)
             State = StoppedState_CheckSendConf;
             break;
         case StoppedState_CheckSendConf:
-            if(SpiIdle == ISPI_GetData(1, 0, 0))
+            if(SpiInProgress != ISPI_GetStatus(1))
             {
                 State = StoppedState_ReadConf;
             }
@@ -172,7 +174,7 @@ dtAdasMngrState StoppedStateHandler(void)
         {
             uint32 temp[sizeof(AdasReadConfig)/4+1];
             memcpy_reverse_32bit(&AdasReadConfig.StartWord, temp, sizeof(AdasReadConfig)/4);
-            temp[sizeof(AdasReadConfig)] = 0;
+            temp[sizeof(AdasReadConfig)/4] = 0;
             ISPI_Send(1, temp, sizeof(AdasReadConfig)+4);
             State = StoppedState_CheckReadConf;
         }
@@ -180,8 +182,9 @@ dtAdasMngrState StoppedStateHandler(void)
         case StoppedState_CheckReadConf:
         {
             uint32 t[sizeof(AdasReadConfig)/4+1];
-            if(SpiIdle == ISPI_GetData(1, &t, sizeof(AdasReadConfig)+4))
+            if(SpiDataAvailable == ISPI_GetStatus(1))
             {
+                ISPI_GetData(1, &t, sizeof(AdasReadConfig)+4);
                 memcpy_reverse_32bit(&t[1], &AdasReadConfig.StartWord, sizeof(AdasReadConfig)/4);
                 uint8 i;
                 for(i = 0; (i < sizeof(AdasReadConfig)/4) && (*(&AdasReadConfig.StartWord+i) == (*(&AdasReqConfig.StartWord+i)&0xFFFFFF7F)); i++);
@@ -248,8 +251,7 @@ dtAdasMngrState StandbyStateHandler(void)
             State = StandbyState_StartReadFrame_Check;
             break;
         case StandbyState_StartReadFrame_Check:
-            if(SpiIdle == ISPI_GetData(1, 0, 0))
-            //if(SpiIdle == SPI_Status(1))
+            if(SpiInProgress != ISPI_GetStatus(1))
             {
                 TxBuff[1] = 0x00000000;
                 State = StandbyState_Neutral;
