@@ -31,6 +31,14 @@ const int32 FirWeightQ15_80dB_100Hz_0_05_4[129] = {
 
 int32 RawSamples[2][sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0])];
 int32 FilterOutputs[2][sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0])];
+int32 RawSamples_2[2][sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0])];
+int32 FilterOutputs_2[2][sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0])];
+int32 RawSamples_3[2][sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0])];
+int32 FilterOutputs_3[2][sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0])];
+int32 RawSamples_4[2][sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0])];
+int32 FilterOutputs_4[2][sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0])];
+int32 RawSamples_5[2][sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0])];
+int32 FilterOutputs_5[2][sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0])];
 const dtDmaMapEntry DmaMap[] = {{FILTER_1_ASSIGNED_DMA_INSTANCE, FILTER_1_ASSIGNED_DMA_STREAM},
                             {FILTER_2_ASSIGNED_DMA_INSTANCE, FILTER_2_ASSIGNED_DMA_STREAM},
                             {FILTER_3_ASSIGNED_DMA_INSTANCE, FILTER_3_ASSIGNED_DMA_STREAM},
@@ -40,9 +48,20 @@ const dtDmaMapEntry DmaMap[] = {{FILTER_1_ASSIGNED_DMA_INSTANCE, FILTER_1_ASSIGN
 dtFilterInfoForDma BufferInfoIdOnThisDma[6];
 dtShitftJob ShiftJobs[15];
 
-dtBufferInfo BufferInfo[] = {   {.State = BufferState_1isActive, .Buffer1 = &RawSamples[0][0], .Buffer2 = &RawSamples[1][0], .ElementSize = 4, .Size = sizeof(RawSamples[0])},
-                                {.State = BufferState_1isActive, .Buffer1 = &FilterOutputs[0][0], .Buffer2 = &FilterOutputs[1][0], .ElementSize = 4, .Size = sizeof(FilterOutputs[0])}};
-dtFilterInfo FilterInfo[1];
+dtBufferInfo BufferInfo[] = {   {.State = BufferState_1isActive, .Buffer1 = &RawSamples[0][0],      .Buffer2 = &RawSamples[1][0],       .ElementSize = 4, .Size = sizeof(RawSamples[0])},
+                                {.State = BufferState_1isActive, .Buffer1 = &FilterOutputs[0][0],   .Buffer2 = &FilterOutputs[1][0],    .ElementSize = 4, .Size = sizeof(FilterOutputs[0])},
+                                {.State = BufferState_1isActive, .Buffer1 = &RawSamples_2[0][0],    .Buffer2 = &RawSamples_2[1][0],     .ElementSize = 4, .Size = sizeof(RawSamples_2[0])},
+                                {.State = BufferState_1isActive, .Buffer1 = &FilterOutputs_2[0][0], .Buffer2 = &FilterOutputs_2[1][0],  .ElementSize = 4, .Size = sizeof(FilterOutputs_2[0])},
+                                {.State = BufferState_1isActive, .Buffer1 = &RawSamples_3[0][0],    .Buffer2 = &RawSamples_3[1][0],     .ElementSize = 4, .Size = sizeof(RawSamples_3[0])},
+                                {.State = BufferState_1isActive, .Buffer1 = &FilterOutputs_3[0][0], .Buffer2 = &FilterOutputs_3[1][0],  .ElementSize = 4, .Size = sizeof(FilterOutputs_3[0])},
+                                {.State = BufferState_1isActive, .Buffer1 = &RawSamples_4[0][0],    .Buffer2 = &RawSamples_4[1][0],     .ElementSize = 4, .Size = sizeof(RawSamples_4[0])},
+                                {.State = BufferState_1isActive, .Buffer1 = &FilterOutputs_4[0][0], .Buffer2 = &FilterOutputs_4[1][0],  .ElementSize = 4, .Size = sizeof(FilterOutputs_4[0])},
+                                {.State = BufferState_1isActive, .Buffer1 = &RawSamples_5[0][0],    .Buffer2 = &RawSamples_5[1][0],     .ElementSize = 4, .Size = sizeof(RawSamples_5[0])},
+                                {.State = BufferState_1isActive, .Buffer1 = &FilterOutputs_5[0][0], .Buffer2 = &FilterOutputs_5[1][0],  .ElementSize = 4, .Size = sizeof(FilterOutputs_5[0])}
+};
+dtFilterInfo FilterInfo[5];
+
+#define FILTER_NUMBER sizeof(FilterInfo)/sizeof(dtFilterInfo)
 
 void IFilters_Init(void);
 void IFilters_TriggerNewProcess(void);
@@ -98,6 +117,34 @@ void IFilters_Init()
     FilterInfo[0].OutBuffers[1] = FilterOutputs[1];
     FilterInfo[0].Size          = sizeof(RawSamples[0])/sizeof(RawSamples[0][0]);
     FilterInfo[0].ElementSizeCode   = 2;
+
+    FilterInfo[1].RawBuffers[0] = RawSamples_2[0];
+    FilterInfo[1].RawBuffers[1] = RawSamples_2[1];
+    FilterInfo[1].OutBuffers[0] = FilterOutputs_2[0];
+    FilterInfo[1].OutBuffers[1] = FilterOutputs_2[1];
+    FilterInfo[1].Size          = sizeof(RawSamples_2[0])/sizeof(RawSamples_2[0][0]);
+    FilterInfo[1].ElementSizeCode   = 2;
+
+    FilterInfo[2].RawBuffers[0] = RawSamples_3[0];
+    FilterInfo[2].RawBuffers[1] = RawSamples_3[1];
+    FilterInfo[2].OutBuffers[0] = FilterOutputs_3[0];
+    FilterInfo[2].OutBuffers[1] = FilterOutputs_3[1];
+    FilterInfo[2].Size          = sizeof(RawSamples_3[0])/sizeof(RawSamples_3[0][0]);
+    FilterInfo[2].ElementSizeCode   = 2;
+
+    FilterInfo[3].RawBuffers[0] = RawSamples_4[0];
+    FilterInfo[3].RawBuffers[1] = RawSamples_4[1];
+    FilterInfo[3].OutBuffers[0] = FilterOutputs_4[0];
+    FilterInfo[3].OutBuffers[1] = FilterOutputs_4[1];
+    FilterInfo[3].Size          = sizeof(RawSamples_4[0])/sizeof(RawSamples_4[0][0]);
+    FilterInfo[3].ElementSizeCode   = 2;
+
+    FilterInfo[4].RawBuffers[0] = RawSamples_5[0];
+    FilterInfo[4].RawBuffers[1] = RawSamples_5[1];
+    FilterInfo[4].OutBuffers[0] = FilterOutputs_5[0];
+    FilterInfo[4].OutBuffers[1] = FilterOutputs_5[1];
+    FilterInfo[4].Size          = sizeof(RawSamples_5[0])/sizeof(RawSamples_5[0][0]);
+    FilterInfo[4].ElementSizeCode   = 2;
 }
 
 static inline void TriggerNewProcessOnFilter(uint8 Id)
@@ -117,6 +164,7 @@ static inline void TriggerNewProcessOnFilter(uint8 Id)
 
 void Filters_Runnable(void)
 {
+    AssignShiftingToDma();
     uint8 FilterInfoLooper;
     for(FilterInfoLooper = 0; FilterInfoLooper < (sizeof(FilterInfo)/sizeof(FilterInfo[0])); FilterInfoLooper++)
     {
@@ -130,8 +178,11 @@ void Filters_Runnable(void)
                     /* Not yet calculated new output value */
                     if(FilterInfo[FilterInfoLooper].Flags.Flags.NewValueReady != 0)
                     {
-                        RawSamples[FilterInfo[FilterInfoLooper].Flags.Flags.RawActiveBlockId][0] = FilterInfo[FilterInfoLooper].NewValue;
-                        int64 t = multiplyArrays(&RawSamples[FilterInfo[FilterInfoLooper].Flags.Flags.RawActiveBlockId][0], FirWeightQ15_80dB_100Hz_0_05_4, sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0]));
+                        FilterInfo[FilterInfoLooper].RawBuffers[FilterInfo[FilterInfoLooper].Flags.Flags.RawActiveBlockId][0] = FilterInfo[FilterInfoLooper].NewValue;
+                        int64 t = multiplyArrays(&FilterInfo[FilterInfoLooper].RawBuffers[FilterInfo[FilterInfoLooper].Flags.Flags.RawActiveBlockId][0], FirWeightQ15_80dB_100Hz_0_05_4, sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0]));
+
+                        //RawSamples[FilterInfo[FilterInfoLooper].Flags.Flags.RawActiveBlockId][0] = FilterInfo[FilterInfoLooper].NewValue;
+                        //int64 t = multiplyArrays(&RawSamples[FilterInfo[FilterInfoLooper].Flags.Flags.RawActiveBlockId][0], FirWeightQ15_80dB_100Hz_0_05_4, sizeof(FirWeightQ15_80dB_100Hz_0_05_4)/sizeof(FirWeightQ15_80dB_100Hz_0_05_4[0]));
                         FilterInfo[FilterInfoLooper].NewOutValue = (int32)(t >> 15);
                         //FilterInfo[FilterInfoLooper].NewOutValue >>= 15;
                         FilterInfo[FilterInfoLooper].Flags.Flags.NewCalcDone = 1;
@@ -143,10 +194,13 @@ void Filters_Runnable(void)
                     if(FilterInfo[FilterInfoLooper].Flags.Flags.NewCalcDone != 0)
                     {
                         /* Output buffer shifting is done the new output value van be added to it */
-                        FilterOutputs[FilterInfo[FilterInfoLooper].Flags.Flags.OutActiveBlockId][0] = FilterInfo[FilterInfoLooper].NewOutValue;
+                        FilterInfo[FilterInfoLooper].OutBuffers[FilterInfo[FilterInfoLooper].Flags.Flags.OutActiveBlockId][0] = FilterInfo[FilterInfoLooper].NewOutValue;
+                        //FilterOutputs[FilterInfo[FilterInfoLooper].Flags.Flags.OutActiveBlockId][0] = FilterInfo[FilterInfoLooper].NewOutValue;
 
                         /* Deactivate calculation process */
                         FilterInfo[FilterInfoLooper].Flags.Flags.FilterCalcActive = 0;
+
+                        ClearTestGpio(FilterInfoLooper);
                     }
                 }
             }
@@ -240,7 +294,12 @@ static dtAssignState AssignShiftingToDma(void)
 
 void IFilters_TriggerNewProcess(void)
 {
+    SetAllTestGpio();
     TriggerNewProcessOnFilter(0);
+    TriggerNewProcessOnFilter(1);
+    TriggerNewProcessOnFilter(2);
+    TriggerNewProcessOnFilter(3);
+    TriggerNewProcessOnFilter(4);
     AssignShiftingToDma();
 }
 
@@ -252,7 +311,14 @@ void IFilters_NewValue(uint8 FilterId, int32 Value)
 
 int32 IFilters_GetOutput(uint8 FilterId)
 {
-    return FilterInfo[FilterId].OutValue;
+    if(FilterId < FILTER_NUMBER)
+    {
+        return FilterInfo[FilterId].OutValue;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 void Dma1CallBack(uint8 Flags, uint32 Num)

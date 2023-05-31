@@ -104,6 +104,5 @@ typedef enum
     AssignState_WaitingForDma,
 } dtAssignState;
 
-int32 IFilters_GetOutput(uint8 FilterId);
 
 #endif /* FILTERS_FILTERS_H_ */

@@ -10,8 +10,9 @@
 
 #include "types.h"
 
-void IFilters_Init(void);
-void IFilters_TriggerNewProcess(void);
-void IFilters_CalcNew(int32 newValue);
+extern void IFilters_Init(void);
+extern void IFilters_TriggerNewProcess(void);
+extern void IFilters_NewValue(uint8 FilterId, int32 Value);
+extern int32 IFilters_GetOutput(uint8 FilterId);
 
 #endif /* FILTERS_H_ */
