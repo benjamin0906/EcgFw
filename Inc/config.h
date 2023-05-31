@@ -8,6 +8,12 @@
 #ifndef CONFIG_H_
 #define CONFIG_H_
 
+#define TEST_GPIO1  PortA_15
+#define TEST_GPIO2  PortB_7
+#define TEST_GPIO3  PortC_11
+#define TEST_GPIO4  PortC_12
+#define TEST_GPIO5  PortC_10
+
 #define ADAS_DRDY   PortA_3
 #define ADAS_CS     PortA_4
 #define ADAS_SCLK   PortA_5

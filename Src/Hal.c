@@ -20,21 +20,39 @@
 #include "adasMngr.h"
 #include "Hal_Internal.h"
 #include "main.h"
+#include "DataHandler_Proc.h"
+#include "config.h"
 
 void halInit(void);
 
-void testGpio(void)
+void SetAllTestGpio(void)
 {
-    static int a = 0;
-    if(a == 0)
+    GPIO_Set(TEST_GPIO1, 1);
+    GPIO_Set(TEST_GPIO2, 1);
+    GPIO_Set(TEST_GPIO3, 1);
+    GPIO_Set(TEST_GPIO4, 1);
+    GPIO_Set(TEST_GPIO5, 1);
+}
+
+void ClearTestGpio(uint8 Id)
+{
+    switch(Id)
     {
-        a = 1;
-        GPIO_Set(PortB_7, Clear);
-    }
-    else
-    {
-        a = 0;
-        GPIO_Set(PortB_7, Set);
+        case 0:
+            GPIO_Set(TEST_GPIO1, 0);
+            break;
+        case 1:
+            GPIO_Set(TEST_GPIO2, 0);
+            break;
+        case 2:
+            GPIO_Set(TEST_GPIO3, 0);
+            break;
+        case 3:
+            GPIO_Set(TEST_GPIO4, 0);
+            break;
+        case 4:
+            GPIO_Set(TEST_GPIO5, 0);
+            break;
     }
 }
 
@@ -73,8 +91,12 @@ void halInit(void)
 
     SysTick_Init(160000);
 
-    GPIO_PinInit(PortA_15, OutputConfig);
-    GPIO_PinInit(PortB_7, OutputConfig);
+    GPIO_PinInit(TEST_GPIO1, OutputConfig);
+    GPIO_PinInit(TEST_GPIO2, OutputConfig);
+    GPIO_PinInit(TEST_GPIO3, OutputConfig);
+    GPIO_PinInit(TEST_GPIO4, OutputConfig);
+    GPIO_PinInit(TEST_GPIO5, OutputConfig);
+
     GPIO_PinInit(PortA_9, InputConfig);
     GPIO_PinInit(PortA_11, USBConf);
     GPIO_PinInit(PortA_12, USBConf);
@@ -95,6 +117,10 @@ void halInit(void)
 
     NVIC_EnableIRQ(DMA_IRQ(FILTER_1_ASSIGNED_DMA_INSTANCE, FILTER_1_ASSIGNED_DMA_STREAM));
     NVIC_EnableIRQ(DMA_IRQ(FILTER_2_ASSIGNED_DMA_INSTANCE, FILTER_2_ASSIGNED_DMA_STREAM));
+    NVIC_EnableIRQ(DMA_IRQ(FILTER_3_ASSIGNED_DMA_INSTANCE, FILTER_3_ASSIGNED_DMA_STREAM));
+    NVIC_EnableIRQ(DMA_IRQ(FILTER_4_ASSIGNED_DMA_INSTANCE, FILTER_4_ASSIGNED_DMA_STREAM));
+    NVIC_EnableIRQ(DMA_IRQ(FILTER_5_ASSIGNED_DMA_INSTANCE, FILTER_5_ASSIGNED_DMA_STREAM));
+    NVIC_EnableIRQ(DMA_IRQ(FILTER_5_ASSIGNED_DMA_INSTANCE, FILTER_6_ASSIGNED_DMA_STREAM));
     IFilters_Init();
 
     dtGPT1Config TIM3Conf = {.ARR = 18000, .Direction = 1, .Mode = Oc4, .OCMode = OcToggle, .OcPolarity = ActiveHigh, .Presc = 0};
@@ -103,7 +129,7 @@ void halInit(void)
 
     dtExtiConfig ExtiCfg = {.EventMask = 0, .InterruptMask = 1, .FallingEdgeTrigger = 1, .RisingEdgeTrigger = 0};
     ISysCfg_SetExti(3,ExtiPort_A);
-    IExti_Config(3, ExtiCfg, BundleAdasTriggers);
+    IExti_Config(3, ExtiCfg, DataHandler_BundleTriggers);
     NVIC_EnableIRQ(IRQ_EXTI3);
 }
 
