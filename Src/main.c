@@ -28,41 +28,12 @@
 #include "SPI.h"
 #include "Filters/Filters_Task.h"
 #include "Filters/Filters_Proc.h"
+#include "Prj_Types.h"
 
 
 #if !defined(__SOFT_FP__) && defined(__ARM_FP)
   #warning "FPU is not initialized, but the project is compiling for an FPU. Please initialize the FPU before use."
 #endif
-
-static uint32 adasData[5];
-static uint8 newAdasData;
-
-void TestGpioSet(void)
-{
-    GPIO_Set(PortA_15, Set);
-}
-
-void TestGpioClear(void)
-{
-    GPIO_Set(PortA_15, Clear);
-}
-
-void BundleAdasTriggers(void)
-{
-    static uint8 BaselineDivider = 0;
-    if(adasMngr_GetReadData(&adasData[0]) != 0)
-    {
-        newAdasData = 1;
-    }
-    adasMngr_TriggerRead();
-    BaselineDivider++;
-    if(BaselineDivider == 20)
-    {
-        IFilters_TriggerNewProcess();
-        IFilters_NewValue(0, adasData[0]);
-        BaselineDivider = 0;
-    }
-}
 
 int main(void)
 {
@@ -70,6 +41,8 @@ int main(void)
     uint8 adas = 0;
     uint32 data[16];
     uint8 dataSize = 0;
+    dtEcgData t;
+    uint8 cntr = 0;
 
     uint32 outBuffer[16];
     uint8 outSize = 0;
@@ -77,29 +50,10 @@ int main(void)
     /* Loop forever */
 	for(;;)
 	{
-        TestGpioSet();
 	    adasMngr_Loop();
-        TestGpioClear();
 	    Filters_Runnable();
-	    if(newAdasData != 0)
-        {
-	        dataSize &= 15;
-	        data[dataSize++] = adasData[0] - IFilters_GetOutput(0);
-            newAdasData = 0;
-        }
-
-	    if(CDC_IsTxBusy() != USBD_BUSY)
-	    {
-	        if((dataSize >= 10))
-	        {
-	            memcpy_reverse_32bit(data, outBuffer, dataSize);
-                outSize = dataSize;
-                if(USB_Transmit(outBuffer, 4*outSize) == USBD_OK)
-                {
-                    dataSize = 0;
-                }
-	        }
-	    }//*/
+	    DataHandler_Runnable();
+	    Com_Runnable();
 
         if(adas == 0)
         {
