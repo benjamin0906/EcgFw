@@ -8,6 +8,8 @@
 #ifndef ADASDRIVER_ADASMNGR_H_
 #define ADASDRIVER_ADASMNGR_H_
 
+#include "Prj_Types.h"
+
 typedef enum
 {
     AdasMngrState_Stopped,
@@ -24,7 +26,7 @@ typedef enum
 
 void adasMngr_Loop(void);
 dtStateTransition adasMngr_SetState(dtAdasMngrState ReqState);
-extern uint8 adasMngr_GetReadData(uint32 *buffer);
+extern uint8 adasMngr_GetReadData(dtEcgData *buffer);
 extern void adasMngr_TriggerRead(void);
 
 #endif /* ADASDRIVER_ADASMNGR_H_ */

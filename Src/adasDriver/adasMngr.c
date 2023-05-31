@@ -37,15 +37,14 @@ dtAdasConfig AdasReadConfig = { .Registers.FrameCtrl        = {.RW = 0, .Address
                                 .Registers.FiltCtrl         = {.RW = 0, .Address = 0x0B, },
                                 .Registers.EcgCtrl          = {.RW = 0, .Address = 0x01, }
 };
-
-int32 readData[4][5];
+dtEcgData readData[4];
 uint8 readDataWrIndex;
 uint8 readDataRdIndex;
 static dtReadState ReadState;
 
 void adasMngr_Loop(void);
 dtStateTransition adasMngr_SetState(dtAdasMngrState ReqState);
-uint8 adasMngr_GetReadData(uint32 *buffer);
+uint8 adasMngr_GetReadData(dtEcgData *buffer);
 dtAdasMngrState StoppedStateHandler(void);
 dtAdasMngrState StandbyStateHandler(void);
 dtAdasMngrState TestingStateHandler(void);
@@ -81,14 +80,30 @@ void adasMngr_Loop(void)
                 {
                     ISPI_GetData(1, RxBuff, 28);
                     ReadState = ReadState_StartRead;
-                    memcpy_reverse_32bit(&RxBuff[1], &readData[readDataWrIndex][0], 5);
-                    changeEndiannessArray(&readData[readDataWrIndex][0], 5);
-                    saturateI32(readData[readDataWrIndex][0], readData[readDataWrIndex][0], 24);
+                    //memcpy_reverse_32bit(&RxBuff[1], &readData[readDataWrIndex][0], 5);
+                    //changeEndiannessArray(&readData[readDataWrIndex][0], 5);
+                    /*saturateI32(readData[readDataWrIndex][0], readData[readDataWrIndex][0], 24);
                     saturateI32(readData[readDataWrIndex][1], readData[readDataWrIndex][1], 24);
                     saturateI32(readData[readDataWrIndex][2], readData[readDataWrIndex][2], 24);
                     readData[readDataWrIndex][0]>>=5;
                     readData[readDataWrIndex][1]>>=5;
-                    readData[readDataWrIndex][2]>>=5;
+                    readData[readDataWrIndex][2]>>=5;*/
+
+
+                    changeEndiannessArray(&RxBuff[1], 5);
+                    saturateI32(RxBuff[1], RxBuff[1], 24);
+                    saturateI32(RxBuff[2], RxBuff[2], 24);
+                    saturateI32(RxBuff[3], RxBuff[3], 24);
+                    saturateI32(RxBuff[4], RxBuff[4], 24);
+                    saturateI32(RxBuff[5], RxBuff[5], 24);
+                    RxBuff[1]>>=5;
+                    RxBuff[2]>>=5;
+                    RxBuff[3]>>=5;
+                    RxBuff[4]>>=5;
+                    RxBuff[5]>>=5;
+
+                    memcpy_reverse_32bit(&RxBuff[1], &readData[readDataWrIndex], 5);
+
                     readDataWrIndex++;
                     readDataWrIndex &= 3;
                 }
@@ -104,12 +119,12 @@ void adasMngr_TriggerRead(void)
     ReadState = ReadState_WaitRead;
 }
 
-uint8 adasMngr_GetReadData(uint32 *buffer)
+uint8 adasMngr_GetReadData(dtEcgData *buffer)
 {
     uint32 ret = 0;
     if(readDataWrIndex != readDataRdIndex)
     {
-        MemCpyRigth(&readData[readDataRdIndex++][0], buffer, 5*sizeof(uint32));
+        memcpy_reverse_32bit(&readData[readDataRdIndex++], buffer, ECG_DATA_TYPESIZE_WORD);
         //memcpy_reverse_32bit(&RxBuff[1], buffer, 4);
         readDataRdIndex &= 3;
         ret = 1;
